@@ -1,31 +1,45 @@
 package org.example;
 
-import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ApproxPi {
     private long numPoints;
-    private long insideCircle;
-    private Random random;
+    private int numTasks;
 
-    public ApproxPi(long numPoints) {
+    public ApproxPi(long numPoints, int numTasks) {
         this.numPoints = numPoints;
-        this.insideCircle = 0;
-        this.random = new Random();
+        this.numTasks = numTasks;
     }
 
     public void calculate() {
         long startTime = System.currentTimeMillis();
+        ExecutorService executor = Executors.newFixedThreadPool(numTasks);
+        List<Future<?>> futures = new ArrayList<>();
+        AtomicLong insideCircle = new AtomicLong(0);
 
-        for (long i = 0; i < numPoints; i++) {
-            double x = random.nextDouble() * 2 - 1; // Génère un nombre entre -1 et 1
-            double y = random.nextDouble() * 2 - 1; // Génère un nombre entre -1 et 1
+        long pointsPerTask = numPoints / numTasks;
 
-            if (x * x + y * y <= 1) {
-                insideCircle++;
+        for (int i = 0; i < numTasks; i++) {
+            PicCalculationTask task = new PicCalculationTask(pointsPerTask, insideCircle);
+            futures.add(executor.submit(task));
+        }
+
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
 
-        double piApproximation = (4.0 * insideCircle) / numPoints;
+        executor.shutdown();
+
+        double piApproximation = (4.0 * insideCircle.get()) / numPoints;
         long endTime = System.currentTimeMillis();
         long elapsedTime = endTime - startTime;
 
